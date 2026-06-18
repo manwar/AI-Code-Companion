@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        :root {
+            --padding: 12px;
+            --font-family: var(--vscode-editor-font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif);
+        }
+
+        body {
+            font-family: var(--font-family);
+            padding: var(--padding);
+            color: var(--vscode-editor-foreground);
+            background-color: var(--vscode-editor-background);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            box-sizing: border-box;
+        }
+
+        #chat-container {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 12px;
+            padding-right: 4px;
+        }
+
+        .message-box {
+            margin-bottom: 16px;
+            line-height: 1.5;
+            font-size: 13px;
+        }
+
+        .user-message {
+            color: var(--vscode-textLink-foreground);
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .ai-message {
+            background-color: var(--vscode-textBlockQuote-background);
+            border-left: 3px solid var(--vscode-textBlockQuote-border);
+            padding: 8px 12px;
+            border-radius: 0 4px 4px 0;
+        }
+
+        /* Markdown Rendering Styles */
+        .ai-message p {
+            margin: 0 0 8px 0;
+        }
+        .ai-message p:last-child {
+            margin-bottom: 0;
+        }
+
+        .ai-message code {
+            font-family: var(--vscode-editor-font-family, monospace);
+            background-color: var(--vscode-textCodeBlock-background, rgba(0,0,0,0.2));
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+
+        .ai-message pre {
+            background-color: var(--vscode-textCodeBlock-background, rgba(0,0,0,0.3));
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            margin: 8px 0;
+        }
+
+        .ai-message pre code {
+            padding: 0;
+            background-color: transparent;
+            border-radius: 0;
+        }
+
+        .ai-message strong {
+            color: var(--vscode-descriptionForeground);
+        }
+
+        /* Selection Context Badge */
+        .context-container {
+            display: none;
+            background-color: var(--vscode-editor-inactiveSelectionBackground, rgba(100, 100, 100, 0.15));
+            border: 1px dashed var(--vscode-focusBorder);
+            border-radius: 4px;
+            padding: 8px;
+            margin-bottom: 8px;
+            font-size: 11px;
+            box-sizing: border-box;
+        }
+
+        .context-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: bold;
+            color: var(--vscode-descriptionForeground);
+            margin-bottom: 4px;
+        }
+
+        .context-clear {
+            cursor: pointer;
+            color: var(--vscode-textLink-foreground);
+            font-weight: normal;
+        }
+
+        .context-clear:hover {
+            text-decoration: underline;
+        }
+
+        .context-preview {
+            font-family: var(--vscode-editor-font-family, monospace);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: var(--vscode-editor-foreground);
+            background: var(--vscode-textCodeBlock-background, rgba(0,0,0,0.1));
+            padding: 2px 4px;
+            border-radius: 2px;
+        }
+
+        /* Input Elements */
+        .input-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            background-color: var(--vscode-editor-background);
+            padding-top: 8px;
+            border-top: 1px solid var(--vscode-widget-border);
+        }
+
+        textarea {
+            width: 100%;
+            height: 60px;
+            background-color: var(--vscode-input-background);
+            color: var(--vscode-input-foreground);
+            border: 1px solid var(--vscode-input-border);
+            border-radius: 4px;
+            padding: 8px;
+            font-family: var(--font-family);
+            font-size: 13px;
+            resize: none;
+            box-sizing: border-box;
+        }
+
+        textarea:focus {
+            outline: 1px solid var(--vscode-focusBorder);
+        }
+
+        button {
+            background-color: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            transition: background-color 0.1s ease;
+        }
+
+        button:hover {
+            background-color: var(--vscode-button-hoverBackground);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div id="chat-container">
+        <div class="message-box">
+            <div class="ai-message">
+                Hello! Select some code in your editor, write a prompt below, and click ask.
+            </div>
+        </div>
+    </div>
+
+    <div class="input-container">
+        <!-- Selected Code Context Indicator -->
+        <div id="context-box" class="context-container">
+            <div class="context-header">
+                <span>Selected Code Context:</span>
+                <span class="context-clear" onclick="clearSelectedCode()">Clear</span>
+            </div>
+            <div id="context-preview" class="context-preview"></div>
+        </div>
+
+        <textarea id="prompt" placeholder="Ask AI code optimization or bugs..."></textarea>
+        <button id="send-btn" onclick="send()">Generate Assistance</button>
+    </div>
+
+    <script>
+        // Check if we are running inside VS Code; otherwise, fall back to a mock interface
+        const vscode = typeof acquireVsCodeApi !== 'undefined'
+            ? acquireVsCodeApi()
+            : { postMessage: (msg) => console.log('Mock Host received message:', msg) };
+
+        const chatContainer = document.getElementById('chat-container');
+        const promptInput = document.getElementById('prompt');
+        const sendBtn = document.getElementById('send-btn');
+        const contextBox = document.getElementById('context-box');
+        const contextPreview = document.getElementById('context-preview');
+
+        // State to keep track of the selected code from the editor
+        let activeSelectedCode = "";
+
+        // Listen for selection or context update events sent from the extension host
+        window.addEventListener('message', event => {
+            const message = event.data;
+            if (message.command === 'setSelectedCode') {
+                updateSelectedCode(message.text || "");
+            }
+        });
+
+        // Update selected code and the UI state
+        function updateSelectedCode(code) {
+            activeSelectedCode = code.trim();
+            if (activeSelectedCode) {
+                contextPreview.innerText = activeSelectedCode.replace(/\n/g, " ↳ ");
+                contextBox.style.display = "block";
+            } else {
+                clearSelectedCode();
+            }
+        }
+
+        // Allow manual clearing of context state
+        function clearSelectedCode() {
+            activeSelectedCode = "";
+            contextBox.style.display = "none";
+            contextPreview.innerText = "";
+        }
+
+        // Simple offline markdown formatter
+        function formatMarkdown(text) {
+            // Escape HTML
+            let html = text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;");
+
+            // Code blocks (```code```)
+            html = html.replace(/```([\s\S]+?)```/g, function(match, code) {
+                return '<pre><code>' + code.trim() + '</code></pre>';
+            });
+
+            // Inline code (`code`)
+            html = html.replace(/`([^`\n]+?)`/g, '<code>$1</code>');
+
+            // Bold text (**text**)
+            html = html.replace(/\*\*([^\*\n]+?)\*\*/g, '<strong>$1</strong>');
+
+            // Line breaks to paragraphs
+            html = html.split('\n\n').map(p => {
+                if (p.trim().startsWith('<pre>')) return p;
+                return '<p>' + p.replace(/\n/g, '<br/>') + '</p>';
+            }).join('');
+
+            return html;
+        }
+
+        async function send() {
+            const promptText = promptInput.value.trim();
+            if (!promptText) return;
+
+            // Preserve current code context for this request and then clear UI indicator
+            const requestSelectedCode = activeSelectedCode;
+
+            // Disable UI during generation
+            promptInput.disabled = true;
+            sendBtn.disabled = true;
+
+            // Add user bubble
+            const userDiv = document.createElement('div');
+            userDiv.className = 'message-box';
+            userDiv.innerHTML = `<div class="user-message">You:</div><div>${promptText}</div>`;
+            chatContainer.appendChild(userDiv);
+
+            // Create placeholder for AI streaming response
+            const aiDiv = document.createElement('div');
+            aiDiv.className = 'message-box';
+            aiDiv.innerHTML = `<div class="user-message">AI:</div><div class="ai-message" id="current-ai-response">Thinking...</div>`;
+            chatContainer.appendChild(aiDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+
+            const responseBox = document.getElementById('current-ai-response');
+            let accumulatedResponse = "";
+
+            try {
+                const response = await fetch('http://127.0.0.1:8000/api/stream', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        prompt: promptText,
+                        selected_code: requestSelectedCode // Dynamically passes the active selection
+                    })
+                });
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                responseBox.innerHTML = ""; // Clear "Thinking..."
+
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+
+                    const rawText = decoder.decode(value);
+                    // Split SSE event streams correctly
+                    const lines = rawText.split('\n');
+                    for (let line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const chunk = line.slice(6);
+                            accumulatedResponse += chunk;
+                            // Update UI instantly with formatted markdown
+                            responseBox.innerHTML = formatMarkdown(accumulatedResponse);
+                            chatContainer.scrollTop = chatContainer.scrollHeight;
+                        }
+                    }
+                }
+            } catch (error) {
+                responseBox.innerHTML = `<span style="color:var(--vscode-errorForeground);">Error connecting to local server. Make sure your Python FastAPI backend is running!</span>`;
+            } finally {
+                // Remove dynamic streaming ID and restore input
+                responseBox.removeAttribute('id');
+                promptInput.value = "";
+                promptInput.disabled = false;
+                sendBtn.disabled = false;
+                clearSelectedCode(); // Clear context indicator after sending
+                promptInput.focus();
+            }
+        }
+
+        // Allow pressing Ctrl+Enter to submit
+        promptInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                send();
+            }
+        });
+    </script>
+</body>
+</html>

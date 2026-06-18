@@ -1,0 +1,42 @@
+{
+  "name": "local-ai-companion",
+  "displayName": "Local AI Code Companion",
+  "description": "An AI development tool streaming completions via local Ollama models",
+  "version": "1.0.0",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "AI",
+    "Linters"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "ai-companion.startChat",
+        "title": "AI: Open Companion Workspace"
+      },
+      {
+        "command": "ai-companion.explainCode",
+        "title": "AI: Explain Selected Code"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "ai-companion.explainCode",
+          "group": "navigation",
+          "when": "editorHasSelection"
+        }
+      ]
+    }
+  },
+  "devDependencies": {
+    "@types/node": "18.x",
+    "@types/vscode": "^1.80.0",
+    "typescript": "^5.1.3"
+  }
+}
