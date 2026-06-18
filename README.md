@@ -31,6 +31,7 @@ $ npm install
 $ npx tsc -p ./
 $ ./start-ollama.sh
 $ ./install-qwen.sh
+$ pip install fastapi uvicorn ollama pydantic
 ```
 
 Now start the server:
