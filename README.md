@@ -37,7 +37,6 @@ Now start the server:
 
 ```bash
 $ python backend/server.py
-(myenv) manwar@manwar:~/AI-Code-Companion$ python backend/server.py
 INFO:     Started server process [635821]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
