@@ -6,23 +6,26 @@ export function activate(context: vscode.ExtensionContext) {
     let panel: vscode.WebviewPanel | undefined = undefined;
     let selectionTimeout: any = undefined;
 
-    // Helper function to send the current selection to the webview safely
-    const updateWebviewSelection = () => {
+    // Helper function to send selection to the webview safely (supports pre-captured text)
+    const updateWebviewSelection = (forcedText?: string) => {
         if (!panel) { return; }
 
-        const editor = vscode.window.activeTextEditor;
-        if (editor) {
-            const selection = editor.selection;
-            const text = editor.document.getText(selection);
-
-            try {
-                panel.webview.postMessage({
-                    command: 'setSelectedCode',
-                    text: text || ""
-                });
-            } catch (err) {
-                console.warn('Failed to send message to webview panel:', err);
+        let text = forcedText;
+        if (text === undefined) {
+            const editor = vscode.window.activeTextEditor;
+            if (editor) {
+                const selection = editor.selection;
+                text = editor.document.getText(selection);
             }
+        }
+
+        try {
+            panel.webview.postMessage({
+                command: 'setSelectedCode',
+                text: text || ""
+            });
+        } catch (err) {
+            console.warn('Failed to send message to webview panel:', err);
         }
     };
 
@@ -37,11 +40,11 @@ export function activate(context: vscode.ExtensionContext) {
     };
 
     // Consolidated panel controller to ensure initialization is unified
-    const showChatPanel = () => {
+    const showChatPanel = (preSelectedText?: string) => {
         // If panel already exists, bring it to the front
         if (panel) {
             panel.reveal(vscode.ViewColumn.Two);
-            updateWebviewSelection();
+            updateWebviewSelection(preSelectedText);
             return;
         }
 
@@ -63,8 +66,10 @@ export function activate(context: vscode.ExtensionContext) {
             const htmlContent = fs.readFileSync(htmlPath, 'utf8');
             panel.webview.html = htmlContent;
 
-            // Send initial selection right after loading completes
-            setTimeout(updateWebviewSelection, 500);
+            // Send captured selection safely after loading completes
+            setTimeout(() => {
+                updateWebviewSelection(preSelectedText);
+            }, 500);
         } catch (error: any) {
             vscode.window.showErrorMessage(
                 `Extension failed to read webview.html synchronously.\nPath: ${htmlPath}\nError: ${error.message}`
@@ -141,10 +146,15 @@ export function activate(context: vscode.ExtensionContext) {
         })
     );
 
-    // Register command 2: Explaining code via Right-click Context Menu
+    // Register command 2: Explaining code via Right-click Context Menu (captures selection instantly)
     context.subscriptions.push(
         vscode.commands.registerCommand('ai-companion.explainCode', () => {
-            showChatPanel();
+            const editor = vscode.window.activeTextEditor;
+            let preSelectedText = "";
+            if (editor) {
+                preSelectedText = editor.document.getText(editor.selection);
+            }
+            showChatPanel(preSelectedText);
         })
     );
 
