@@ -1,5 +1,11 @@
 ## AI Code Companion
 
+Setup env var first.
+
+```bash
+$ export AI_COMPANION_PYTHON="/home/manwar/python-venv/myenv/bin/python"
+```
+
 To deploy the code, clone the repository as below:
 
 ```bash

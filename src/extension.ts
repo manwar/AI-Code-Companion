@@ -9,15 +9,25 @@ export function activate(context: vscode.ExtensionContext) {
 
     let backendProcess: child_process.ChildProcess | undefined = undefined;
     try {
-        const pythonPath = '/home/manwar/python-venv/myenv/bin/python';
+        // 1. Rely strictly on the environment variable
+        const pythonPath = process.env.AI_COMPANION_PYTHON;
         const serverPath = path.join(context.extensionPath, 'backend', 'server.py');
 
-        backendProcess = child_process.spawn(pythonPath, [serverPath]);
+        // 2. If it's missing, show an explicit error and do not start the server
+        if (!pythonPath) {
+            vscode.window.showErrorMessage(
+                'AI Local Companion: The "AI_COMPANION_PYTHON" environment variable is not defined. Backend failed to start.'
+            );
+        } else {
+            // TypeScript safely narrows pythonPath to a valid string here
+            const processInstance = child_process.spawn(pythonPath, [serverPath]);
+            backendProcess = processInstance;
 
-        backendProcess.stderr?.on('data', (data) => {
-            console.error(`Backend log: ${data}`);
-        });
-    } catch (err) {
+            processInstance.stderr?.on('data', (data) => {
+                console.error(`Backend log: ${data}`);
+            });
+        }
+    } catch (err: any) {
         console.error('Failed to automatically start Python backend:', err);
     }
 
