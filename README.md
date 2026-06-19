@@ -33,6 +33,7 @@ $ mkdir -p ~/.vscode-server/extensions/local-ai-companion-1.0.0/
 $ cp -r out/ src/ backend/ package.json ~/.vscode-server/extensions/local-ai-companion-1.0.0/
 $ ./start-ollama.sh
 $ ./install-qwen.sh
+$ pip install fastapi uvicorn ollama pydantic
 ```
 
 Inside VS Code, open any script and select the code you want AI to explain then right click and select "AI: Explain Selected Code".
