@@ -1,10 +1,25 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as child_process from 'child_process';
 
 export function activate(context: vscode.ExtensionContext) {
     let panel: vscode.WebviewPanel | undefined = undefined;
     let selectionTimeout: any = undefined;
+
+    let backendProcess: child_process.ChildProcess | undefined = undefined;
+    try {
+        const pythonPath = '/home/manwar/python-venv/myenv/bin/python';
+        const serverPath = path.join(context.extensionPath, 'backend', 'server.py');
+
+        backendProcess = child_process.spawn(pythonPath, [serverPath]);
+
+        backendProcess.stderr?.on('data', (data) => {
+            console.error(`Backend log: ${data}`);
+        });
+    } catch (err) {
+        console.error('Failed to automatically start Python backend:', err);
+    }
 
     // Helper function to send selection to the webview safely (supports pre-captured text)
     const updateWebviewSelection = (forcedText?: string) => {
